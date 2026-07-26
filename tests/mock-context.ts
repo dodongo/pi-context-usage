@@ -133,7 +133,7 @@ const mockBranch = [
     message: {
       role: "toolResult",
       toolName: "read",
-      content: [{ type: "text", text: "src/index.ts contains the /context and /release commands in one file." }],
+      content: [{ type: "text", text: "src/index.ts registers the /context command." }],
     },
   },
   {
@@ -392,6 +392,7 @@ const mockCtx = {
 (mockPi as any).getAllTools = () => [...(mockTools as any)];
 
 registerExtension(mockPi as any);
+assert.deepEqual([...commands.keys()], ["context"], "only the context command should be registered");
 
 const contextHandler = commands.get("context");
 if (!contextHandler) {
