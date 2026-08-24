@@ -350,12 +350,16 @@ assert.equal(
 );
 
 const commands = new Map<string, Function>();
+const hooks = new Map<string, Function>();
 const mockPi = {
   registerCommand: (name: string, command: { handler: Function }) => {
     commands.set(name, command.handler);
   },
   getActiveTools: () => mockTools.map((tool) => tool.name),
   getAllTools: () => [...(mockTools as any)],
+  on: (name: string, handler: Function) => {
+    hooks.set(name, handler);
+  },
 };
 
 const mockCtx = {
@@ -393,6 +397,14 @@ const mockCtx = {
 
 registerExtension(mockPi as any);
 assert.deepEqual([...commands.keys()], ["context"], "only the context command should be registered");
+assert.deepEqual(
+  [...hooks.keys()],
+  ["session_start", "before_agent_start"],
+  "effective system prompt hooks should be registered"
+);
+
+const effectiveSystemPrompt = "Effective outbound system prompt after extension filtering.";
+hooks.get("before_agent_start")?.({ systemPrompt: effectiveSystemPrompt });
 
 const contextHandler = commands.get("context");
 if (!contextHandler) {
@@ -400,6 +412,11 @@ if (!contextHandler) {
 }
 
 await contextHandler(mode === "details" ? "details" : "", mockCtx as any);
+
+assert.ok(
+  outputs.some((output) => output.includes("System Prompt:      15 (0%)")),
+  "context usage should measure the effective outbound system prompt"
+);
 
 for (const output of outputs) {
   console.log("--- OUTPUT START ---");

@@ -35,6 +35,10 @@ import {
 
 type SectionKey = "systemPrompt" | "tools" | "conversation";
 
+type SystemPromptProvider = (ctx: Pick<ExtensionCommandContext, "getSystemPrompt">) => string;
+
+const baseSystemPrompt: SystemPromptProvider = (ctx) => ctx.getSystemPrompt();
+
 type VisibleRow =
   | { kind: "section"; key: SectionKey }
   | { kind: "systemPromptSummary" }
@@ -60,12 +64,13 @@ function usageHint(): string {
 
 function buildSummary(
   pi: ExtensionAPI,
-  ctx: ExtensionCommandContext
+  ctx: ExtensionCommandContext,
+  getSystemPrompt: SystemPromptProvider
 ): UsageBuckets | null {
   const usage = ctx.getContextUsage();
   if (!usage || !ctx.model) return null;
 
-  const systemPrompt = ctx.getSystemPrompt();
+  const systemPrompt = getSystemPrompt(ctx);
   const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
 
   const activeTools = getActiveToolDetails(pi);
@@ -504,14 +509,18 @@ class ContextDetailsOverlay implements Component {
   }
 }
 
-async function showDetails(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<void> {
-  const buckets = buildSummary(pi, ctx);
+async function showDetails(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext,
+  getSystemPrompt: SystemPromptProvider
+): Promise<void> {
+  const buckets = buildSummary(pi, ctx, getSystemPrompt);
   if (!buckets) {
     ctx.ui.notify("No context usage data available. Send a message first.", "warning");
     return;
   }
 
-  const systemTools = computeSystemToolsSection(ctx, pi);
+  const systemTools = computeSystemToolsSection(ctx, pi, getSystemPrompt(ctx));
   const turns = computeTurnBreakdown(ctx.sessionManager.getBranch());
 
   if (!ctx.hasUI) {
@@ -533,14 +542,17 @@ async function showDetails(pi: ExtensionAPI, ctx: ExtensionCommandContext): Prom
   );
 }
 
-export function registerContextCommand(pi: ExtensionAPI) {
+export function registerContextCommand(
+  pi: ExtensionAPI,
+  getSystemPrompt: SystemPromptProvider = baseSystemPrompt
+) {
   pi.registerCommand("context", {
     description: "Show context usage summary or /context details breakdown",
     getArgumentCompletions: getContextCompletions,
     handler: async (args, ctx) => {
       const normalized = args.trim().toLowerCase();
 
-      const buckets = buildSummary(pi, ctx);
+      const buckets = buildSummary(pi, ctx, getSystemPrompt);
       if (!buckets) {
         ctx.ui.notify("No context usage data available. Send a message first.", "warning");
         return;
@@ -552,7 +564,7 @@ export function registerContextCommand(pi: ExtensionAPI) {
       }
 
       if (normalized === "details") {
-        await showDetails(pi, ctx);
+        await showDetails(pi, ctx, getSystemPrompt);
         return;
       }
 
