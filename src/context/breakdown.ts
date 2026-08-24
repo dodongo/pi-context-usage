@@ -103,9 +103,10 @@ export function getActiveToolDetails(pi: ExtensionAPI): ToolInfo[] {
 
 export function computeSystemToolsSection(
   ctx: Pick<ExtensionCommandContext, "getSystemPrompt" | "sessionManager">,
-  pi: ExtensionAPI
+  pi: ExtensionAPI,
+  systemPromptText = ctx.getSystemPrompt()
 ): SystemToolsSection {
-  const systemPrompt = computeSystemPromptTokens(ctx.getSystemPrompt());
+  const systemPrompt = computeSystemPromptTokens(systemPromptText);
   const tools = computeToolBreakdown(getActiveToolDetails(pi));
   const toolsTokens = tools.reduce((sum, tool) => sum + tool.totalTokens, 0);
   const toolsChars = tools.reduce((sum, tool) => sum + tool.totalChars, 0);
